@@ -108,15 +108,19 @@ func recover_from_stagger() -> void:
 # Process stagger reduction at the end of a turn
 func process_turn_end() -> void:
     if _is_staggered:
-        # Reduce stagger by recovery rate
-        reduce_stagger(stagger_recovery_rate)
-        
-        # Check if entity is no longer staggered
-        if stagger_value < stagger_threshold:
-            recover_from_stagger()
+        # Reset stagger to zero after skipping a turn
+        reset_stagger()
+        recover_from_stagger()
     else:
         # Natural decay when not staggered
         reduce_stagger(stagger_decay_rate)
+
+# Reset stagger value to zero
+func reset_stagger() -> void:
+    var old_stagger = stagger_value
+    stagger_value = 0.0
+    
+    emit_signal("stagger_reduced", old_stagger, stagger_value, entity)
 
 # Reduce stagger by specified amount
 func reduce_stagger(amount: float) -> void:

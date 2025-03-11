@@ -67,11 +67,14 @@ func start_next_turn():
     
     # Skip turn if staggered
     if active_actor.stagger_component and active_actor.stagger_component.is_staggered():
-        # Process stagger recovery at end of skipped turn
+        # Process stagger recovery at end of skipped turn - this will reset stagger to 0
         active_actor.stagger_component.process_turn_end()
         
         # Show "Turn Skipped" message
-        $BattleUI.show_status_message(active_actor.name + " is staggered! Turn skipped!")
+        if has_node("BattleUI"):
+            $BattleUI.show_status_message(active_actor.name + " is staggered! Turn skipped!")
+        else:
+            print(active_actor.name + " is staggered! Turn skipped!")
         
         # Short delay before next turn
         await get_tree().create_timer(1.0).timeout
@@ -116,7 +119,8 @@ func process_enemy_turn():
     var ability = active_actor.get_random_ability()
     
     # Show enemy intent
-    $BattleUI.show_enemy_intent(active_actor, ability, target)
+    if has_node("BattleUI"):
+        $BattleUI.show_enemy_intent(active_actor, ability, target)
     
     # Short delay before attack
     await get_tree().create_timer(0.5).timeout
@@ -144,8 +148,8 @@ func execute_ability(actor, ability, targets):
     
     # Apply stagger from the ability
     for target in targets:
-        if target.stagger_component:
-            target.stagger_component.apply_attack_stagger(actor, ability, ability.damage_type)
+        if target.stagger_component and ability.has_method("get_damage_type"):
+            target.stagger_component.apply_attack_stagger(actor, ability, ability.get_damage_type())
     
     # Trigger any relics that activate on ability use
     for relic in active_relics:
@@ -161,19 +165,16 @@ func on_entity_staggered(entity):
         if relic.trigger_condition == "on_stagger":
             relic.apply_effect(self, entity)
     
-    # Check one of your example relic effects:
-    # "When an enemy staggers, other enemies gain 50% of that stagger"
-    if entity in enemies:
-        # Find relic with this effect
-        var stagger_spread_relic = active_relics.filter(func(r): return r.id == "stagger_spreader_relic")
+    # Example relic effect: "When an enemy staggers, other enemies gain 50% of that stagger"
+    var stagger_spread_relic = active_relics.filter(func(r): return r.id == "stagger_spreader_relic")
+    
+    if stagger_spread_relic.size() > 0 and entity in enemies:
+        # Apply 50% of stagger threshold to other enemies
+        var stagger_amount = entity.stagger_component.stagger_threshold * 0.5
         
-        if stagger_spread_relic.size() > 0:
-            # Apply 50% of stagger threshold to other enemies
-            var stagger_amount = entity.stagger_component.stagger_threshold * 0.5
-            
-            for other_enemy in enemies:
-                if other_enemy != entity and other_enemy.stats.current_hp > 0:
-                    other_enemy.stagger_component.apply_stagger(stagger_amount)
+        for other_enemy in enemies:
+            if other_enemy != entity and other_enemy.stats.current_hp > 0:
+                other_enemy.stagger_component.apply_stagger(stagger_amount)
 
 func check_battle_state():
     # Check if all enemies are defeated
@@ -209,7 +210,8 @@ func process_victory():
     game_state.run_stats.battles_won += 1
     
     # Show victory UI
-    $BattleUI.show_victory_screen()
+    if has_node("BattleUI"):
+        $BattleUI.show_victory_screen()
     
     # Enemies defeated count for tracking
     var defeated_count = enemies.size()
@@ -217,10 +219,13 @@ func process_victory():
     
     # Prepare rewards
     # (implementation not shown)
+    pass
 
 func process_defeat():
     # Show defeat UI
-    $BattleUI.show_defeat_screen()
+    if has_node("BattleUI"):
+        $BattleUI.show_defeat_screen()
     
     # Update run statistics
     # (implementation not shown)
+    pass
